@@ -7,6 +7,33 @@ const api = axios.create({
   },
 });
 
+// 1. REQUEST INTERCEPTOR: Automatically attach your passcode to every API call
+api.interceptors.request.use((config) => {
+  let passcode = localStorage.getItem('vault_passcode');
+  
+  if (!passcode) {
+    passcode = window.prompt('🔒 Enter your Finance Vault Passcode:');
+    if (passcode) {
+      localStorage.setItem('vault_passcode', passcode.trim());
+    }
+  }
+  
+  config.headers['x-access-key'] = passcode;
+  return config;
+});
+
+// 2. RESPONSE INTERCEPTOR: Clear passcode if it was typed wrong
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response && error.response.status === 401) {
+      localStorage.removeItem('vault_passcode');
+      alert('❌ Invalid Passcode! Refresh the page to try again.');
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const fetchCards = () => api.get('/cards');
 export const fetchTransactions = (cardId) => api.get(`/transactions/${cardId}`);
 export const addTransaction = (data) => api.post('/transactions', data);
