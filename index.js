@@ -16,7 +16,7 @@ app.use(express.json());
 
 
 const corsOptions = {
-  origin: 'https://expense-tracker-engine.onrender.com/',
+  origin: 'https://expense-tracker-engine.onrender.com',
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
