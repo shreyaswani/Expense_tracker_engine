@@ -11,22 +11,26 @@ import { GoogleSpreadsheet } from 'google-spreadsheet';
 import { JWT } from 'google-auth-library';
 
 const app = express();
-app.use(cors());
-app.use(express.json());
-
 
 const corsOptions = {
-  origin: 'https://expense-tracker-engine.onrender.com',
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  origin: [
+    'https://expense-tracker-engine.vercel.app', // Your live Vercel frontend
+    'http://localhost:5173',                     // Local Vite dev server
+    'http://localhost:3000'
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-access-key'],
   credentials: true
 };
 
 app.use(cors(corsOptions));
 app.use(express.json());
 
-
+// Gatekeeper Middleware
 app.use((req, res, next) => {
+  // Always allow browser CORS preflight checks to pass
+  if (req.method === 'OPTIONS') return next();
+
   const clientKey = req.headers['x-access-key'];
   const serverSecret = process.env.APP_SECRET_KEY;
 
