@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  /* This creates utility classes like bg-dark-bg, text-dark-text, etc. */
+  --color-dark-bg: #0f172a;
+  --color-dark-card: #1e293b;
+  --color-dark-border: #334155;
+  --color-dark-text: #f8fafc;
+  --color-dark-muted: #94a3b8;
+}
+
+body {
+  @apply bg-dark-bg text-dark-text antialiased;
+}
+
