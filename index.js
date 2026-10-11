@@ -26,6 +26,17 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 
+app.use((req, res, next) => {
+  const clientKey = req.headers['x-access-key'];
+  const serverSecret = process.env.APP_SECRET_KEY;
+
+  if (!serverSecret || clientKey !== serverSecret) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid or missing Passcode' });
+  }
+  next(); // Passcode matches! Let them through to Google Sheets.
+});
+
+
 const privateKey = process.env.GOOGLE_PRIVATE_KEY 
   ? process.env.GOOGLE_PRIVATE_KEY.replace(/\\n/g, '\n') 
   : undefined;
