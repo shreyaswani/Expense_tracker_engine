@@ -7,29 +7,70 @@ const api = axios.create({
   },
 });
 
-// 1. REQUEST INTERCEPTOR: Automatically attach your passcode to every API call
+let isAskingForPasscode = false;
+
+// 1. REQUEST INTERCEPTOR: Attach passcode from localStorage
 api.interceptors.request.use((config) => {
   let passcode = localStorage.getItem('vault_passcode');
   
-  if (!passcode) {
-    passcode = window.prompt('🔒 Enter your Finance Vault Passcode:');
-    if (passcode) {
-      localStorage.setItem('vault_passcode', passcode.trim());
+  if (!passcode && !isAskingForPasscode) {
+    isAskingForPasscode = true;
+    const input = window.prompt('🔒 Enter your Finance Vault Passcode:');
+    if (input && input.trim()) {
+      passcode = input.trim();
+      localStorage.setItem('vault_passcode', passcode);
     }
+    isAskingForPasscode = false;
   }
   
-  config.headers['x-access-key'] = passcode;
+  if (passcode) {
+    config.headers['x-access-key'] = passcode;
+  }
   return config;
 });
 
-// 2. RESPONSE INTERCEPTOR: Clear passcode if it was typed wrong
+// 2. RESPONSE INTERCEPTOR: Auto-cache GET data for offline mode & handle 401s cleanly
+let hasAlerted401 = false;
+
 api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response && error.response.status === 401) {
-      localStorage.removeItem('vault_passcode');
-      alert('❌ Invalid Passcode! Refresh the page to try again.');
+  (response) => {
+    hasAlerted401 = false; // Reset on successful connection
+    
+    // Save a backup of every GET request in localStorage for Offline Mode
+    if (response.config.method === 'get' && response.config.url) {
+      try {
+        localStorage.setItem(`offline_cache_${response.config.url}`, JSON.stringify(response.data));
+      } catch (e) {
+        console.warn('Cache storage full', e);
+      }
     }
+    return response;
+  },
+  (error) => {
+    // IF OFFLINE (No internet / Network Error): Serve the cached data from localStorage!
+    if (!error.response && error.config && error.config.method === 'get') {
+      const cachedData = localStorage.getItem(`offline_cache_${error.config.url}`);
+      if (cachedData) {
+        return Promise.resolve({
+          data: JSON.parse(cachedData),
+          status: 200,
+          statusText: 'OK (Offline Cache)',
+          headers: {},
+          config: error.config,
+        });
+      }
+    }
+
+    // IF 401 UNAUTHORIZED: Ask once to update the passcode instead of looping
+    if (error.response && error.response.status === 401 && !hasAlerted401) {
+      hasAlerted401 = true;
+      const retry = window.prompt('❌ Passcode rejected by server! Re-enter your APP_SECRET_KEY:');
+      if (retry && retry.trim()) {
+        localStorage.setItem('vault_passcode', retry.trim());
+        window.location.reload();
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -48,27 +89,18 @@ export const addSharedExpense = (data) => api.post('/shared-expenses', data);
 export const settleSharedExpense = (id, amount) => api.put(`/shared-expenses/${id}/settle`, { amount });
 
 // --- NEW ENGINE ROUTES ---
-
-// Edit Transaction
 export const editTransaction = (id, updatedData) => api.put(`/transactions/${id}`, updatedData);
-
-// Log EMI Payment
 export const logEmiPayment = (paymentData) => api.post(`/emi-payments`, paymentData);
-
-// Fetch Bill Tracker Summary
 export const fetchBillSummary = (cardId) => api.get(`/bill-summary/${cardId}`);
 
 // Master Data Endpoints
 export const fetchFriends = () => api.get("/friends");
 export const addFriend = (data) => api.post(`/friends`, data);
-
-export const fetchPaymentModes = () => api.get("/payment-modes");
-export const addPaymentMode = (data) => api.post(`/payment-modes`, data);
-
-// Add these below your existing master data exports
 export const editFriend = (id, data) => api.put(`/friends/${id}`, data);
 export const deleteFriend = (id) => api.delete(`/friends/${id}`);
 
+export const fetchPaymentModes = () => api.get("/payment-modes");
+export const addPaymentMode = (data) => api.post(`/payment-modes`, data);
 export const editPaymentMode = (id, data) => api.put(`/payment-modes/${id}`, data);
 export const deletePaymentMode = (id) => api.delete(`/payment-modes/${id}`);
 
